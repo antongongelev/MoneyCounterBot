@@ -13,6 +13,8 @@ public enum MenuCommand {
     NEW_EXPENSE("➕ Добавить расход"),
     LIST_OF_EXPENSES("📊 Список расходов"),
     BACK_TO_MENU("◀️ Назад в меню"),
+    APPLY_DELETION("✅ Да, удалить"),
+    CANCEL_DELETION("❌ Нет, отменить"),
     CLOSE("❌ Закрыть меню"),
     ;
 

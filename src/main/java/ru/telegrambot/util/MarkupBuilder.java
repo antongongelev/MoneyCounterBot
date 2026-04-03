@@ -1,5 +1,6 @@
 package ru.telegrambot.util;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
@@ -44,11 +45,28 @@ public class MarkupBuilder {
         return markup;
     }
 
-    private InlineKeyboardButton of(MenuCommand menuCommand) {
-        InlineKeyboardButton button = new InlineKeyboardButton();
-        button.setText(menuCommand.getMenuButtonText());
-        button.setCallbackData(menuCommand.name());
-        return button;
+    public InlineKeyboardMarkup expenseRemovalMenu(Integer expenseId) {
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row = new ArrayList<>();
+
+        row.add(of(MenuCommand.APPLY_DELETION, "_" + expenseId));
+        row.add(of(MenuCommand.CANCEL_DELETION));
+        keyboard.add(row);
+
+        markup.setKeyboard(keyboard);
+        return markup;
     }
 
+    private InlineKeyboardButton of(MenuCommand menuCommand) {
+        return of(menuCommand, StringUtils.EMPTY);
+    }
+
+    private InlineKeyboardButton of(MenuCommand menuCommand, String payload) {
+        InlineKeyboardButton button = new InlineKeyboardButton();
+        button.setText(menuCommand.getMenuButtonText());
+        button.setCallbackData(menuCommand.name() + payload);
+        return button;
+    }
 }

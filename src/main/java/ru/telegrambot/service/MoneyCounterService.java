@@ -23,6 +23,7 @@ import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -90,8 +91,17 @@ public class MoneyCounterService {
         Message message = update.getCallbackQuery().getMessage();
         Long chatId = message.getChatId();
         Integer messageId = message.getMessageId();
+        String callbackData = update.getCallbackQuery().getData();
 
-        Optional<MenuCommand> command = MenuCommand.of(update.getCallbackQuery().getData());
+        // Обработка подтверждения удаления
+        if (callbackData.startsWith(MenuCommand.APPLY_DELETION.name())) {
+            String[] parts = callbackData.split("_");
+            Integer expenseId = Integer.parseInt(parts[2]);
+            deleteExpense(expenseId, chatId, messageId);
+            return;
+        }
+
+        Optional<MenuCommand> command = MenuCommand.of(callbackData);
 
         if (!command.isPresent()) {
             sendMessage(chatId, "Неизвестная команда");
@@ -111,6 +121,9 @@ public class MoneyCounterService {
             case CLOSE:
                 deleteMessage(chatId, messageId);
                 break;
+            case CANCEL_DELETION:
+                cancelDeletion(chatId, messageId);
+                break;
         }
     }
 
@@ -125,16 +138,18 @@ public class MoneyCounterService {
             return;
         }
 
-        // Группируем расходы по категориям
-        Map<String, List<Expense>> expensesByCategory = expenses.stream()
-                .collect(Collectors.groupingBy(Expense::getCategory));
+        // Сортируем расходы по дате (новые сверху)
+        expenses.sort((e1, e2) -> e2.getExpenseDate().compareTo(e1.getExpenseDate()));
 
         StringBuilder result = new StringBuilder();
         result.append("📊 *СПИСОК РАСХОДОВ*\n");
-        result.append("━━━━━━━━━━━━━━━━━━━━━\n\n");
+        result.append("===========\n\n");
 
         BigDecimal totalAll = BigDecimal.ZERO;
-        int totalCount = expenses.size();
+
+        // Группируем расходы по категориям
+        Map<String, List<Expense>> expensesByCategory = expenses.stream()
+                .collect(Collectors.groupingBy(Expense::getCategory));
 
         // Сортируем категории по алфавиту
         List<String> sortedCategories = new ArrayList<>(expensesByCategory.keySet());
@@ -142,23 +157,39 @@ public class MoneyCounterService {
 
         for (String category : sortedCategories) {
             List<Expense> categoryExpenses = expensesByCategory.get(category);
-            BigDecimal categoryTotal = categoryExpenses.stream()
-                    .map(Expense::getAmount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal categoryTotal = BigDecimal.ZERO;
 
-            int categoryCount = categoryExpenses.size();
+            result.append(String.format("📂 *%s*\n\n", category));
 
-            result.append(String.format("📂 *%s*\n", category));
-            result.append(String.format("   Количество трат: %d\n", categoryCount));
-            result.append(String.format("   Подитог: %s руб.\n", formatMoney(categoryTotal)));
-            result.append("   ─────────────────\n\n");
+            // Сортируем расходы в категории по дате (новые сверху)
+            categoryExpenses.sort((e1, e2) -> e2.getExpenseDate().compareTo(e1.getExpenseDate()));
+
+            for (Expense expense : categoryExpenses) {
+                String date = expense.getExpenseDate().format(DateTimeFormatter.ofPattern("dd.MM.yy HH:mm"));
+                String amount = formatMoney(expense.getAmount());
+
+                String idStr = String.format("№: %s", expense.getId());
+                String sumStr = String.format("💰 *%s руб.*", amount);
+                String dateStr = String.format("📅 %s", date);
+
+                result.append(idStr).append(" || ")
+                        .append(sumStr).append(" || ")
+                        .append(dateStr).append("\n\n");
+
+                categoryTotal = categoryTotal.add(expense.getAmount());
+            }
+
+            result.append(String.format("📊 *Подитог:* %s руб.\n", formatMoney(categoryTotal)));
+            result.append(String.format("📌 *Расходов в категории:* %d\n\n", categoryExpenses.size()));
 
             totalAll = totalAll.add(categoryTotal);
         }
 
-        result.append("━━━━━━━━━━━━━━━━━━━━━\n");
+        result.append("===========\n");
         result.append(String.format("💰 *ОБЩИЙ ИТОГ:* %s руб.\n", formatMoney(totalAll)));
-        result.append(String.format("📌 *Всего трат:* %d\n", totalCount));
+        result.append(String.format("📌 *Всего расходов:* %d\n", expenses.size()));
+        result.append("\n💡 *Введите № расхода* для удаления (например: `123`)\n");
+        result.append("💡 Или используйте кнопки ниже для навигации");
 
         // Добавляем инлайн-кнопки для навигации
         editMessageText(chatId, messageId, result.toString(), markupBuilder.expensesListMenu());
@@ -171,8 +202,88 @@ public class MoneyCounterService {
             return;
         }
 
+        // Проверяем, является ли ввод ID расхода для удаления (только цифры)
+        if (messageText.matches("\\d+")) {
+            Integer expenseId = Integer.parseInt(messageText);
+            Optional<Expense> expenseOpt = expenseRepository.findById(expenseId);
+
+            if (expenseOpt.isPresent() && expenseOpt.get().getMoneyChatId().equals(chatId)) {
+                confirmExpenseDeletion(chatId, expenseId);
+            } else {
+                sendMessage(chatId, "❌ Расход с таким ID не найден! Пожалуйста, проверьте ID и попробуйте снова.");
+            }
+            return;
+        }
+
         if (messageText.equals("/start")) {
             showMainMenu(chatId);
+        }
+    }
+
+    private void confirmExpenseDeletion(Long chatId, Integer expenseId) {
+        Optional<Expense> expenseOpt = expenseRepository.findById(expenseId);
+
+        if (!expenseOpt.isPresent()) {
+            sendMessage(chatId, "❌ Расход не найден! Возможно, он уже была удален.");
+            return;
+        }
+
+        Expense expense = expenseOpt.get();
+        String date = expense.getExpenseDate().format(DateTimeFormatter.ofPattern("dd.MM.yy HH:mm"));
+        String amount = formatMoney(expense.getAmount());
+
+        String confirmationText = String.format(
+                "⚠️ *Удаление Расхода*\n\n" +
+                        "ID: `%d`\n" +
+                        "Сумма: %s руб.\n" +
+                        "Категория: %s\n" +
+                        "Дата: %s\n\n" +
+                        "Вы уверены, что хотите удалить этот расход?",
+                expenseId, amount, expense.getCategory(), date
+        );
+
+        // Создаем инлайн-кнопки для подтверждения
+        InlineKeyboardMarkup confirmationKeyboard = markupBuilder.expenseRemovalMenu(expenseId);
+        sendMessage(chatId, confirmationText, confirmationKeyboard);
+    }
+
+
+    private void deleteExpense(Integer expenseId, Long chatId, Integer messageId) {
+        Optional<Expense> expenseOpt = expenseRepository.findById(expenseId);
+
+        if (!expenseOpt.isPresent()) {
+            sendMessage(chatId, "❌ Расход уже была удален!");
+            showExpensesList(chatId, messageId);
+            return;
+        }
+
+        Expense expense = expenseOpt.get();
+        String category = expense.getCategory();
+
+        expenseRepository.deleteById(expenseId);
+
+        if (expenseRepository.findAllByMoneyChatIdAndCategory(chatId, category).isEmpty()) {
+            categoryRepository.deleteAllByMoneyChatIdAndName(chatId, category);
+            chatCategories.getOrDefault(chatId, new ArrayList<>()).removeIf(categoryName -> categoryName.equals(category));
+        }
+
+        String successText = String.format("✅ *Расход с ID:%d успешно удален!*", expenseId);
+        editMessageText(chatId, messageId, successText, null);
+
+        // Показываем обновленный список через секунду
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Проверяем, остались ли расходы
+        List<Expense> remainingExpenses = expenseRepository.findAllByMoneyChatId(chatId);
+        if (remainingExpenses.isEmpty()) {
+            sendMessage(chatId, "📊 У вас больше нет расходов. Чтобы добавить новый, используйте главное меню.");
+            showMainMenu(chatId);
+        } else {
+            showExpensesList(chatId, messageId);
         }
     }
 
@@ -413,6 +524,16 @@ public class MoneyCounterService {
                 log.error("Can't edit keyboard", e);
             }
         }
+    }
+
+    private void cancelDeletion(Long chatId, Integer messageId) {
+        editMessageText(chatId, messageId, "❌ Удаление отменено.", null);
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        showExpensesList(chatId, messageId);
     }
 
     private void deleteMessage(Long chatId, Integer messageId) {

@@ -7,9 +7,11 @@ import ru.telegrambot.entity.Expense;
 
 import java.util.List;
 
-public interface ExpenseRepository extends JpaRepository<Expense, Long> {
+public interface ExpenseRepository extends JpaRepository<Expense, Integer> {
 
     List<Expense> findAllByMoneyChatId(Long chatId);
+
+    List<Expense> findAllByMoneyChatIdAndCategory(Long chatId, String category);
 
     @Transactional
     @Modifying(flushAutomatically = true, clearAutomatically = true)
