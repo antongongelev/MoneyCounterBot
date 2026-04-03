@@ -1,0 +1,31 @@
+spring:
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/money_counter_bot_db
+    username: postgres
+    password: postgres
+
+  liquibase:
+    enabled: true
+    change-log: classpath:liquibase/changelog.yaml
+
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: validate
+
+domain:
+
+  proxy:
+    enabled: false
+    host: 127.0.0.1
+    port: 3066
+
+  bot:
+    name: XXX
+    token: YYY
+
+  chats:
+
+    - name: "NAME"
+      chat_id: XXX
