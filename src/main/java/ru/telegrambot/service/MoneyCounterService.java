@@ -83,14 +83,7 @@ public class MoneyCounterService {
             return;
         }
 
-        // Проверяем, есть ли активный диалог
-        if (chatStates.containsKey(chatId)) {
-            handleDialogInput(chatId, messageText);
-        } else if (messageText.equals("/start")) {
-            showMainMenu(chatId);
-        } else {
-            sendMessage(chatId, "Неизвестная команда. Используйте /start для начала работы");
-        }
+        handleTextInput(chatId, messageText);
     }
 
     private void handleCallbackQuery(Update update) {
@@ -137,7 +130,7 @@ public class MoneyCounterService {
                 .collect(Collectors.groupingBy(Expense::getCategory));
 
         StringBuilder result = new StringBuilder();
-        result.append("📊 *СВОДКА РАСХОДОВ*\n");
+        result.append("📊 *СПИСОК РАСХОДОВ*\n");
         result.append("━━━━━━━━━━━━━━━━━━━━━\n\n");
 
         BigDecimal totalAll = BigDecimal.ZERO;
@@ -166,10 +159,21 @@ public class MoneyCounterService {
         result.append("━━━━━━━━━━━━━━━━━━━━━\n");
         result.append(String.format("💰 *ОБЩИЙ ИТОГ:* %s руб.\n", formatMoney(totalAll)));
         result.append(String.format("📌 *Всего трат:* %d\n", totalCount));
-        result.append("\n💡 Для просмотра деталей по категории используйте /category <название>");
 
         // Добавляем инлайн-кнопки для навигации
         editMessageText(chatId, messageId, result.toString(), markupBuilder.expensesListMenu());
+    }
+
+    private void handleTextInput(Long chatId, String messageText) {
+        // Проверяем, есть ли активный диалог
+        if (chatStates.containsKey(chatId)) {
+            handleDialogInput(chatId, messageText);
+            return;
+        }
+
+        if (messageText.equals("/start")) {
+            showMainMenu(chatId);
+        }
     }
 
     private void startNewExpenseDialog(Long chatId, Integer messageId) {
@@ -292,7 +296,7 @@ public class MoneyCounterService {
 
         dialog.setCategory(category);
 
-        // Сохраняем расход (здесь будет логика сохранения в БД)
+        // Сохраняем расход
         saveExpense(dialog);
 
         // Завершаем диалог
@@ -345,11 +349,13 @@ public class MoneyCounterService {
     }
 
     private void showMainMenu(Long chatId) {
+        chatStates.remove(chatId);
         String menuText = "🏠 *Меню*\n\nЧто Вы хотите сделать?";
         sendMessage(chatId, menuText, markupBuilder.mainMenu());
     }
 
     private void showMainMenu(Long chatId, Integer messageId) {
+        chatStates.remove(chatId);
         String menuText = "🏠 *Меню*\n\nЧто Вы хотите сделать?";
         editMessageText(chatId, messageId, menuText, markupBuilder.mainMenu());
     }

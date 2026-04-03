@@ -14,6 +14,6 @@ public class ExpenseDialogState {
 
     public enum DialogStep {
         WAITING_FOR_AMOUNT,
-        WAITING_FOR_CATEGORY
+        WAITING_FOR_CATEGORY,
     }
 }
