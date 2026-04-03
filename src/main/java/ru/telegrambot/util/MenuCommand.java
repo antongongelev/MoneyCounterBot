@@ -10,8 +10,9 @@ import java.util.Optional;
 @AllArgsConstructor
 public enum MenuCommand {
 
-    NEW_EXPENSE("\uD83C\uDD95 Добавить  расход"),
-    LIST_OF_EXPENSES("\uD83D\uDCD6 Список расходов"),
+    NEW_EXPENSE("➕ Добавить расход"),
+    LIST_OF_EXPENSES("📊 Список расходов"),
+    BACK_TO_MENU("◀️ Назад в меню"),
     CLOSE("❌ Закрыть меню"),
     ;
 

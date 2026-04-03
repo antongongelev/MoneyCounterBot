@@ -31,6 +31,19 @@ public class MarkupBuilder {
         return markup;
     }
 
+    public InlineKeyboardMarkup expensesListMenu() {
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row1 = new ArrayList<>();
+
+        row1.add(of(MenuCommand.BACK_TO_MENU));
+        keyboard.add(row1);
+
+        markup.setKeyboard(keyboard);
+        return markup;
+    }
+
     private InlineKeyboardButton of(MenuCommand menuCommand) {
         InlineKeyboardButton button = new InlineKeyboardButton();
         button.setText(menuCommand.getMenuButtonText());

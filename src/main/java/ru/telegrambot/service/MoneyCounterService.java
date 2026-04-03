@@ -23,6 +23,8 @@ import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -105,15 +107,69 @@ public class MoneyCounterService {
 
         switch (command.get()) {
             case LIST_OF_EXPENSES:
-                editMessageText(chatId, messageId, "Список расходов будет здесь 🎉", null);
+                showExpensesList(chatId, messageId);
                 break;
             case NEW_EXPENSE:
                 startNewExpenseDialog(chatId, messageId);
+                break;
+            case BACK_TO_MENU:
+                showMainMenu(chatId, messageId);
                 break;
             case CLOSE:
                 deleteMessage(chatId, messageId);
                 break;
         }
+    }
+
+    private void showExpensesList(Long chatId, Integer messageId) {
+        List<Expense> expenses = expenseRepository.findAllByMoneyChatId(chatId);
+
+        if (expenses.isEmpty()) {
+            String text = "📊 *Список расходов*\n\n" +
+                    "У вас пока нет ни одного расхода.\n" +
+                    "Используйте кнопку \"➕ Добавить расход\" чтобы создать первый!";
+            editMessageText(chatId, messageId, text, null);
+            return;
+        }
+
+        // Группируем расходы по категориям
+        Map<String, List<Expense>> expensesByCategory = expenses.stream()
+                .collect(Collectors.groupingBy(Expense::getCategory));
+
+        StringBuilder result = new StringBuilder();
+        result.append("📊 *СВОДКА РАСХОДОВ*\n");
+        result.append("━━━━━━━━━━━━━━━━━━━━━\n\n");
+
+        BigDecimal totalAll = BigDecimal.ZERO;
+        int totalCount = expenses.size();
+
+        // Сортируем категории по алфавиту
+        List<String> sortedCategories = new ArrayList<>(expensesByCategory.keySet());
+        Collections.sort(sortedCategories);
+
+        for (String category : sortedCategories) {
+            List<Expense> categoryExpenses = expensesByCategory.get(category);
+            BigDecimal categoryTotal = categoryExpenses.stream()
+                    .map(Expense::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            int categoryCount = categoryExpenses.size();
+
+            result.append(String.format("📂 *%s*\n", category));
+            result.append(String.format("   Количество трат: %d\n", categoryCount));
+            result.append(String.format("   Подитог: %s руб.\n", formatMoney(categoryTotal)));
+            result.append("   ─────────────────\n\n");
+
+            totalAll = totalAll.add(categoryTotal);
+        }
+
+        result.append("━━━━━━━━━━━━━━━━━━━━━\n");
+        result.append(String.format("💰 *ОБЩИЙ ИТОГ:* %s руб.\n", formatMoney(totalAll)));
+        result.append(String.format("📌 *Всего трат:* %d\n", totalCount));
+        result.append("\n💡 Для просмотра деталей по категории используйте /category <название>");
+
+        // Добавляем инлайн-кнопки для навигации
+        editMessageText(chatId, messageId, result.toString(), markupBuilder.expensesListMenu());
     }
 
     private void startNewExpenseDialog(Long chatId, Integer messageId) {
@@ -291,6 +347,11 @@ public class MoneyCounterService {
     private void showMainMenu(Long chatId) {
         String menuText = "🏠 *Меню*\n\nЧто Вы хотите сделать?";
         sendMessage(chatId, menuText, markupBuilder.mainMenu());
+    }
+
+    private void showMainMenu(Long chatId, Integer messageId) {
+        String menuText = "🏠 *Меню*\n\nЧто Вы хотите сделать?";
+        editMessageText(chatId, messageId, menuText, markupBuilder.mainMenu());
     }
 
     private void sendMessage(Long chatId, String message) {
