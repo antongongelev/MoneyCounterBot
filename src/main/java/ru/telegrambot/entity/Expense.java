@@ -29,10 +29,6 @@ public class Expense {
 
     private Long moneyChatId;
 
-    private Long telegramId;
-
-    private String username;
-
     private LocalDateTime expenseDate;
 
     private BigDecimal amount;

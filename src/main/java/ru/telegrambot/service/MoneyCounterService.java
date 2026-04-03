@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
@@ -38,7 +37,6 @@ public class MoneyCounterService {
 
     private static final double MAX_AMOUNT = 9_999_999.99;
     private static final int MAX_DECIMAL_PLACES = 2;
-    private final UserService userService;
 
     @Setter
     private TelegramBot telegramBot;
@@ -105,14 +103,12 @@ public class MoneyCounterService {
             return;
         }
 
-        Pair<Long, String> user = userService.getUserFromMessage(message);
-
         switch (command.get()) {
             case LIST_OF_EXPENSES:
                 editMessageText(chatId, messageId, "Список расходов будет здесь 🎉", null);
                 break;
             case NEW_EXPENSE:
-                startNewExpenseDialog(chatId, messageId, user);
+                startNewExpenseDialog(chatId, messageId);
                 break;
             case CLOSE:
                 deleteMessage(chatId, messageId);
@@ -120,10 +116,9 @@ public class MoneyCounterService {
         }
     }
 
-    private void startNewExpenseDialog(Long chatId, Integer messageId, Pair<Long, String> user) {
+    private void startNewExpenseDialog(Long chatId, Integer messageId) {
         ExpenseDialogState dialog = new ExpenseDialogState();
         dialog.setChatId(chatId);
-        dialog.setUser(user);
         dialog.setCurrentStep(ExpenseDialogState.DialogStep.WAITING_FOR_AMOUNT);
         chatStates.put(chatId, dialog);
 
@@ -269,8 +264,6 @@ public class MoneyCounterService {
                 .amount(BigDecimal.valueOf(state.getAmount()))
                 .category(state.getCategory())
                 .expenseDate(LocalDateTime.now())
-                .telegramId(state.getUser().getLeft())
-                .username(state.getUser().getRight())
                 .build();
 
         expenseRepository.save(expense);
