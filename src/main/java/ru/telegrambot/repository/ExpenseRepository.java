@@ -9,10 +9,10 @@ import java.util.List;
 
 public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
-    List<Expense> findAllByMoneyChatName(String chatName);
+    List<Expense> findAllByMoneyChatId(Long chatId);
 
     @Transactional
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    void deleteAllByMoneyChatName(String chatName);
+    void deleteAllByMoneyChatId(Long chatId);
 
 }

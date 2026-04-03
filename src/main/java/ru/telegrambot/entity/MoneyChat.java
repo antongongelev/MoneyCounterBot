@@ -11,32 +11,22 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "expense")
+@Table(name = "money_chat")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Expense {
+public class MoneyChat {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    private Long moneyChatId;
+    private String name;
 
-    private Long telegramId;
-
-    private String username;
-
-    private LocalDateTime expenseDate;
-
-    private BigDecimal amount;
-
-    private String category;
+    private Long chatId;
 
 }
